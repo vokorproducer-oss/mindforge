@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MINDFORGE: THE OBSIDIAN KEEP</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Georgia',serif;cursor:none}
+canvas{display:block}
+
+/* ── OVERLAY START ── */
+#overlay{
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse at center, #0a0005 0%, #000 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:200;color:#c8a96e;
+}
+#overlay h1{
+  font-size:3rem;letter-spacing:0.6em;margin-bottom:0.4rem;
+  color:#c8a96e;text-shadow:0 0 40px #c8a96e44;
+  animation:pulse 3s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:0.9}50%{opacity:1}}
+.subtitle{color:#4a3820;letter-spacing:0.4em;font-size:0.75rem;margin-bottom:3rem}
+.intro-text{
+  color:#5a4a38;font-size:0.82rem;max-width:460px;text-align:center;
+  line-height:2;margin-bottom:3rem;letter-spacing:0.05em;
+}
+#startBtn{
+  background:none;border:1px solid #c8a96e44;color:#c8a96e88;
+  padding:14px 50px;font-size:0.8rem;cursor:pointer;
+  letter-spacing:0.4em;font-family:'Georgia',serif;
+  transition:all 0.4s;
+}
+#startBtn:hover{border-color:#c8a96e;color:#c8a96e;background:#c8a96e08;box-shadow:0 0 20px #c8a96e11}
+.key-hint{color:#2a2018;font-size:0.65rem;letter-spacing:0.2em;margin-top:3rem;line-height:2}
+
+/* ── HUD ── */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none}
+
+#timer{
+  position:fixed;top:22px;right:24px;color:#c8a96e;
+  font-size:1rem;letter-spacing:0.2em;
+  text-shadow:0 0 8px #c8a96e33;transition:color 1s;
+}
+
+#floor-label{
+  position:fixed;top:22px;left:24px;color:#2a2015;
+  font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;
+}
+
+#crosshair{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:3px;height:3px;background:#c8a96e22;border-radius:50%;
+  transition:all 0.15s;
+}
+#crosshair.hot{background:#c8a96ecc;box-shadow:0 0 6px #c8a96e88;width:5px;height:5px}
+
+#hint{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  color:#c8a96e55;font-size:0.72rem;letter-spacing:0.25em;
+  opacity:0;transition:opacity 0.3s;
+}
+#hint.show{opacity:1}
+
+#msgbox{
+  position:fixed;bottom:36px;left:50%;transform:translateX(-50%);
+  background:rgba(3,1,4,0.9);border:1px solid #c8a96e22;
+  color:#c8a96e99;padding:13px 26px;font-size:0.78rem;
+  letter-spacing:0.08em;max-width:580px;text-align:center;
+  opacity:0;transition:opacity 0.5s;
+  pointer-events:none;line-height:1.7;
+}
+#msgbox.show{opacity:1}
+
+#controls{
+  position:fixed;bottom:10px;left:12px;
+  color:#1a1510;font-size:0.6rem;letter-spacing:0.12em;
+}
+
+/* ── VIGNETTE ── */
+#vignette{
+  position:fixed;inset:0;pointer-events:none;z-index:5;
+  background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.75) 100%);
+}
+#sanity{
+  position:fixed;inset:0;pointer-events:none;z-index:7;
+  background:rgba(0,0,0,0);transition:background 0.8s;
+}
+
+/* ── PUZZLE PANEL ── */
+#puzzle{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(4,2,5,0.97);border:1px solid #c8a96e22;
+  padding:32px 36px;min-width:320px;display:none;z-index:100;
+  pointer-events:all;
+}
+#puzzle h3{
+  color:#c8a96e55;font-size:0.7rem;letter-spacing:0.35em;
+  text-align:center;margin-bottom:8px;
+}
+#puzzle-line{
+  color:#4a3820;font-size:0.72rem;letter-spacing:0.1em;
+  min-height:18px;margin-bottom:22px;text-align:center;line-height:1.6;
+}
+.sym-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+.sym{
+  background:none;border:1px solid #c8a96e18;color:#c8a96e66;
+  padding:16px 10px;cursor:pointer;font-size:1.6rem;
+  transition:all 0.2s;font-family:serif;
+}
+.sym:hover{border-color:#c8a96e55;color:#c8a96e;background:#c8a96e08}
+.sym.lit{border-color:#c8a96eaa;background:#c8a96e22;color:#fff;text-shadow:0 0 8px #c8a96e}
+.sym.err{border-color:#aa2222;background:#aa222218;animation:shk 0.25s}
+@keyframes shk{0%,100%{transform:translateX(0)}33%{transform:translateX(-4px)}66%{transform:translateX(4px)}}
+#close-pzl{
+  background:none;border:none;color:#2a2015;font-size:0.65rem;
+  cursor:pointer;letter-spacing:0.2em;display:block;margin:0 auto;
+}
+#close-pzl:hover{color:#c8a96e55}
+
+/* ── NOTES ── */
+#notes{
+  position:fixed;top:50%;right:24px;transform:translateY(-50%);
+  background:rgba(4,2,5,0.95);border:1px solid #c8a96e18;
+  width:210px;max-height:320px;padding:18px;
+  display:none;z-index:100;overflow-y:auto;pointer-events:all;
+}
+#notes h4{color:#2a2015;font-size:0.65rem;letter-spacing:0.2em;margin-bottom:12px}
+.note-entry{
+  color:#c8a96e66;font-size:0.72rem;line-height:1.7;margin-bottom:10px;
+  padding-bottom:10px;border-bottom:1px solid #c8a96e0a;
+}
+
+/* ── WIN ── */
+#win{
+  position:fixed;inset:0;background:rgba(0,0,0,0);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:300;color:#c8a96e;text-align:center;
+  transition:background 2s;
+}
+#win.show{background:rgba(0,0,0,0.96)}
+#win h2{font-size:1.6rem;letter-spacing:0.4em;margin-bottom:1.2rem;opacity:0;transition:opacity 2s 1s}
+#win p{color:#4a3820;max-width:380px;line-height:2;font-size:0.8rem;opacity:0;transition:opacity 2s 2s}
+#win.show h2,#win.show p{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- START SCREEN -->
+<div id="overlay">
+  <h1>MINDFORGE</h1>
+  <div class="subtitle">THE OBSIDIAN KEEP</div>
+  <p class="intro-text">
+    Il Castello di Morderyn ti aspetta.<br>
+    Hai sessanta minuti per attraversare il primo piano.<br><br>
+    <span style="color:#2a1a0e">Osserva. Respira. Non agitarti.</span><br>
+    <span style="color:#1a1008">L'agitazione peggiora le cose.</span>
+  </p>
+  <button id="startBtn" onclick="startGame()">E N T R A R E</button>
+  <div class="key-hint">
+    WASD / FRECCE &nbsp;—&nbsp; movimento<br>
+    MOUSE &nbsp;—&nbsp; sguardo<br>
+    E &nbsp;—&nbsp; interagire<br>
+    N &nbsp;—&nbsp; note mentali<br>
+    ESC &nbsp;—&nbsp; pausa
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="timer">60:00</div>
+  <div id="floor-label">Piano I — La Grande Sala</div>
+  <div id="crosshair"></div>
+  <div id="hint">[ E ] &nbsp; interagire</div>
+  <div id="msgbox"></div>
+  <div id="controls">WASD muovi &nbsp;|&nbsp; MOUSE guarda &nbsp;|&nbsp; E interagisci &nbsp;|&nbsp; N note</div>
+</div>
+
+<div id="vignette"></div>
+<div id="sanity"></div>
+
+<!-- PUZZLE -->
+<div id="puzzle">
+  <h3>— MURO DEI SIMBOLI —</h3>
+  <div id="puzzle-line">Osserva il pendolo. In quale ordine illumina i simboli?</div>
+  <div class="sym-grid">
+    <button class="sym" onclick="pressSymbol(0)">Ψ</button>
+    <button class="sym" onclick="pressSymbol(1)">Σ</button>
+    <button class="sym" onclick="pressSymbol(2)">Ω</button>
+    <button class="sym" onclick="pressSymbol(3)">Δ</button>
+    <button class="sym" onclick="pressSymbol(4)">Φ</button>
+    <button class="sym" onclick="pressSymbol(5)">Λ</button>
+  </div>
+  <button id="close-pzl" onclick="closePuzzle()">[ allontanarsi ]</button>
+</div>
+
+<!-- NOTES -->
+<div id="notes">
+  <h4>NOTE MENTALI</h4>
+  <div id="notes-inner"></div>
+</div>
+
+<!-- WIN -->
+<div id="win">
+  <h2>— PORTA APERTA —</h2>
+  <p>
+    Hai attraversato il primo piano del Castello di Morderyn.<br><br>
+    Il castello ti ha osservato.<br>
+    <span style="color:#1a1008">Ora sa chi sei.</span>
+  </p>
+  <div style="margin-top:3rem;color:#1a1008;font-size:0.7rem;letter-spacing:0.2em;opacity:0;transition:opacity 2s 3.5s" id="nextfloor">
+    Piano II — Il Laboratorio — ti attende
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════
+// MINDFORGE — Piano I — Three.js Prototype
+// ═══════════════════════════════════════════
+
+const $ = id => document.getElementById(id);
+let scene, camera, renderer, clock;
+let yaw=0, pitch=0;
+let moveF=false,moveB=false,moveL=false,moveR=false;
+let isLocked=false, gameStarted=false, puzzleOpen=false;
+let candles=[], interactables=[], symbolMeshes=[], symbolLights=[];
+let pendulumGroup, pendulumAngle=0.6, pendulumOmega=0;
+let doorMesh, doorOpen=false;
+let puzzleSolved=false, playerSeq=[];
+let timeLeft=3600, timerID;
+let msgTO;
+let notes=[];
+let notesOpen=false;
+let audioCtx, droneG, droneG2;
+let currentTarget=null;
+
+// Correct sequence: Φ(4) Ψ(0) Δ(3) Σ(1) Λ(5)
+const SOLUTION=[4,0,3,1,5];
+const SYM_NAMES=['Ψ','Σ','Ω','Δ','Φ','Λ'];
+
+// ── INIT ──────────────────────────────────
+function init(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x000000);
+  scene.fog=new THREE.FogExp2(0x060304,0.07);
+
+  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.05,80);
+  camera.position.set(0,1.72,5);
+
+  renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.45;
+
+  clock=new THREE.Clock();
+
+  buildRoom();
+  buildProps();
+  buildCandleSystem();
+  buildPendulum();
+  buildSymbolWall();
+  buildDoor();
+  buildParticles();
+  setupControls();
+  setupAudio();
+  window.addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+  loop();
+}
+
+// ── ROOM ──────────────────────────────────
+function mat(col,rough=0.7,metal=0.1){
+  return new THREE.MeshStandardMaterial({color:col,roughness:rough,metalness:metal});
+}
+
+function buildRoom(){
+  const W=14,H=8,D=22;
+  const obsidian=mat(0x080508,0.25,0.75);
+  const stone=mat(0x0c0a0c,0.85,0.08);
+  const floor=mat(0x060306,0.9,0.2);
+
+  // Floor
+  addBox(W,0.2,D,[0,-0.1,0],floor,true,false);
+  // Ceiling
+  addBox(W,0.2,D,[0,H,0],obsidian,false,false);
+  // Walls
+  addBox(W,H,0.25,[0,H/2,-D/2],obsidian,false,true);   // back
+  addBox(W,H,0.25,[0,H/2, D/2],obsidian,false,false);   // front
+  addBox(0.25,H,D,[-W/2,H/2,0],obsidian,false,true);   // left
+  addBox(0.25,H,D,[W/2,H/2,0],obsidian,false,true);    // right
+
+  // Pillars
+  const pilMat=mat(0x0a070a,0.45,0.5);
+  [[-5,-6],[-5,0],[-5,6],[5,-6],[5,0],[5,6]].forEach(([x,z])=>{
+    addBox(0.7,H,0.7,[x,H/2,z],pilMat,true,true);
+  });
+
+  // Arch beams
+  const archMat=mat(0x0d0a0d,0.3,0.6);
+  [-6,-0,6].forEach(z=>{
+    addBox(10.5,0.25,0.3,[0,H-0.3,z],archMat,false,false);
+  });
+
+  // Subtle ambient
+  scene.add(new THREE.AmbientLight(0x060308,0.5));
+}
+
+function addBox(w,h,d,pos,m,cast,recv){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+  mesh.position.set(...pos);
+  if(cast)mesh.castShadow=true;
+  if(recv)mesh.receiveShadow=true;
+  scene.add(mesh);
+  return mesh;
+}
+
+// ── PROPS ─────────────────────────────────
+function buildProps(){
+  const wood=mat(0x1a0e06,0.92);
+  const dark=mat(0x0c0a0e,0.75,0.15);
+
+  // Table
+  addBox(3.8,0.12,1.8,[-1.5,1.0,1.5],wood,true,true);
+  [[-0.8,1.7],[ 0.8,1.7],[-0.8,-0.3],[ 0.8,-0.3]].forEach(([x,z])=>{
+    addBox(0.12,1.0,0.12,[x-1.5,0.5,z+1.5],wood,false,false);
+  });
+
+  // Bookshelves
+  addBox(0.35,4.5,2.8,[-6.8,2.25,-4],wood,false,false);
+  addBox(0.35,4.5,2.8,[-6.8,2.25,3],wood,false,false);
+
+  // Books
+  const bCols=[0x220808,0x082208,0x080822,0x221408,0x180820,0x221808];
+  for(let i=0;i<20;i++){
+    const b=new THREE.Mesh(
+      new THREE.BoxGeometry(0.055,0.28+Math.random()*0.15,0.22),
+      mat(bCols[i%bCols.length],0.95)
+    );
+    b.position.set(-6.6,1.15+Math.floor(i/7)*1.15+Math.random()*0.03,-5+i%7*0.18);
+    b.rotation.z=(Math.random()-0.5)*0.08;
+    scene.add(b);
+  }
+
+  // Overturned chair
+  const seat=addBox(0.65,0.1,0.65,[3.5,0.35,2.5],wood,false,false);
+  seat.rotation.set(0.3,0.2,Math.PI/2);
+
+  // Scattered papers
+  for(let i=0;i<10;i++){
+    const p=new THREE.Mesh(
+      new THREE.PlaneGeometry(0.28,0.38),
+      mat(0x100d08,1)
+    );
+    p.material.side=THREE.DoubleSide;
+    p.rotation.x=-Math.PI/2;
+    p.rotation.z=(Math.random()-0.5)*Math.PI;
+    p.position.set(-1+Math.random()*5,-0.005,Math.random()*6-3);
+    scene.add(p);
+  }
+
+  // ── NOTE interattiva sul tavolo ──
+  const note=new THREE.Mesh(
+    new THREE.PlaneGeometry(0.38,0.28),
+    mat(0x1a150a,1)
+  );
+  note.material.side=THREE.DoubleSide;
+  note.rotation.x=-Math.PI/2;
+  note.rotation.z=0.15;
+  note.position.set(-1.5,1.07,1.5);
+  note.userData={
+    ia:true,type:'note',
+    txt:'Nota di A. Morderyn — 1671:\n"Il nome è la via. A-l-d-r-i-c.\nLa sequenza dei simboli che il pendolo illumina:\nΦ prima, poi Ψ, poi Δ, poi Σ, poi Λ.\nNon Ω — mai Ω. L\'Omega è la trappola."\n\n[ aggiunta alle note mentali ]'
+  };
+  scene.add(note);
+  interactables.push(note);
+
+  // Candelabra
+  addBox(0.04,1.2,0.04,[2.2,0.6,1.5],mat(0x1a1208,0.4,0.7),false,false);
+}
+
+// ── CANDLES ───────────────────────────────
+function buildCandleSystem(){
+  const pos=[
+    [0,7.2,-9],[−3.5,4,−5],[3.5,4,−5],
+    [-5.5,3.5,0],[5.5,3.5,0],
+    [-3,3.5,4],[3,3.5,4],
+    [0,3.2,0]
+  ];
+  pos.forEach(([x,y,z],i)=>{
+    const L=new THREE.PointLight(0xc87020,0,10);
+    L.position.set(x,y,z);
+    L.castShadow=true;
+    L.shadow.mapSize.setScalar(256);
+    L.shadow.camera.near=0.1;
+    L.shadow.camera.far=12;
+    scene.add(L);
+
+    const flame=new THREE.Mesh(
+      new THREE.ConeGeometry(0.035,0.1,6),
+      new THREE.MeshBasicMaterial({color:0xd4a040})
+    );
+    flame.position.set(x,y,z);
+    scene.add(flame);
+
+    candles.push({
+      L,flame,
+      base:0.5+Math.random()*0.6,
+      sp:1.8+Math.random()*3.5,
+      amp:0.12+Math.random()*0.2,
+      ph:Math.random()*Math.PI*2
+    });
+  });
+}
+
+// ── PENDULUM ──────────────────────────────
+function buildPendulum(){
+  pendulumGroup=new THREE.Group();
+  pendulumGroup.position.set(0,7.8,-8);
+  scene.add(pendulumGroup);
+
+  const rod=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018,0.018,5.5,8),
+    mat(0x201508,0.3,0.85)
+  );
+  rod.position.y=-2.75;
+  pendulumGroup.add(rod);
+
+  const bob=new THREE.Mesh(
+    new THREE.SphereGeometry(0.22,16,16),
+    mat(0x0a0408,0.1,0.9)
+  );
+  bob.position.y=-5.5;
+  pendulumGroup.add(bob);
+
+  const pL=new THREE.PointLight(0x4050b0,0.4,4);
+  bob.add(pL);
+}
+
+// ── SYMBOL WALL ───────────────────────────
+function buildSymbolWall(){
+  // 6 symbols in 3x2 grid on back wall
+  for(let i=0;i<6;i++){
+    const col=i%3, row=Math.floor(i/3);
+    const x=(col-1)*2.8, y=4.2-row*1.6, z=-9.75;
+
+    const plate=new THREE.Mesh(
+      new THREE.BoxGeometry(1.1,1.1,0.06),
+      new THREE.MeshStandardMaterial({
+        color:0x0a060a,roughness:0.4,metalness:0.35,emissive:0x000000
+      })
+    );
+    plate.position.set(x,y,z);
+    plate.userData={ia:true,type:'symbol',idx:i};
+    scene.add(plate);
+    interactables.push(plate);
+    symbolMeshes.push(plate);
+
+    const sL=new THREE.PointLight(0x7030c0,0,2.5);
+    sL.position.set(x,y,z+0.5);
+    scene.add(sL);
+    symbolLights.push(sL);
+  }
+}
+
+// ── DOOR ──────────────────────────────────
+function buildDoor(){
+  doorMesh=new THREE.Mesh(
+    new THREE.BoxGeometry(1.9,3.4,0.18),
+    mat(0x080508,0.25,0.65)
+  );
+  doorMesh.position.set(0,1.7,-9.85);
+  scene.add(doorMesh);
+
+  // Frame
+  const fm=mat(0x181008,0.35,0.7);
+  addBox(2.3,0.18,0.28,[0,3.48,-9.85],fm,false,false);
+  addBox(0.18,3.8,0.28,[-1.05,1.7,-9.85],fm,false,false);
+  addBox(0.18,3.8,0.28,[ 1.05,1.7,-9.85],fm,false,false);
+
+  // Handle
+  const handle=new THREE.Mesh(
+    new THREE.SphereGeometry(0.07,10,10),
+    mat(0x2a1a06,0.15,0.9)
+  );
+  handle.position.set(0.65,1.7,-9.73);
+  handle.userData={ia:true,type:'door',txt:''};
+  scene.add(handle);
+  interactables.push(handle);
+}
+
+// ── PARTICLES ─────────────────────────────
+function buildParticles(){
+  const N=600;
+  const pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    pos[i*3]=(Math.random()-0.5)*13;
+    pos[i*3+1]=Math.random()*7.5;
+    pos[i*3+2]=(Math.random()-0.5)*20;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pts=new THREE.Points(g,
+    new THREE.PointsMaterial({color:0x331a0a,size:0.018,transparent:true,opacity:0.5})
+  );
+  scene.add(pts);
+}
+
+// ── CONTROLS ──────────────────────────────
+function setupControls(){
+  const cv=$('c');
+  cv.addEventListener('click',()=>{
+    if(gameStarted&&!puzzleOpen&&!notesOpen) cv.requestPointerLock();
+  });
+  document.addEventListener('pointerlockchange',()=>{
+    isLocked=document.pointerLockElement===cv;
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!isLocked||puzzleOpen) return;
+    yaw   -=e.movementX*0.002;
+    pitch -=e.movementY*0.002;
+    pitch=Math.max(-1.2,Math.min(1.2,pitch));
+  });
+  document.addEventListener('keydown',e=>{
+    if(!gameStarted) return;
+    if(e.code==='KeyW'||e.code==='ArrowUp')    moveF=true;
+    if(e.code==='KeyS'||e.code==='ArrowDown')  moveB=true;
+    if(e.code==='KeyA'||e.code==='ArrowLeft')  moveL=true;
+    if(e.code==='KeyD'||e.code==='ArrowRight') moveR=true;
+    if(e.code==='KeyE') interact();
+    if(e.code==='KeyN') toggleNotes();
+    if(e.code==='Escape'){
+      if(puzzleOpen) closePuzzle();
+      else if(notesOpen) toggleNotes();
+      else if(isLocked) document.exitPointerLock();
+    }
+  });
+  document.addEventListener('keyup',e=>{
+    if(e.code==='KeyW'||e.code==='ArrowUp')    moveF=false;
+    if(e.code==='KeyS'||e.code==='ArrowDown')  moveB=false;
+    if(e.code==='KeyA'||e.code==='ArrowLeft')  moveL=false;
+    if(e.code==='KeyD'||e.code==='ArrowRight') moveR=false;
+  });
+}
+
+// ── AUDIO ─────────────────────────────────
+function setupAudio(){
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    function mkOsc(freq,type='sine'){
+      const o=audioCtx.createOscillator();
+      const g=audioCtx.createGain();
+      o.type=type; o.frequency.value=freq;
+      g.gain.value=0;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); return g;
+    }
+    droneG =mkOsc(55);   // A1
+    droneG2=mkOsc(82.4); // E2
+    setInterval(()=>{ if(gameStarted&&Math.random()<0.25) playGhost(); },14000);
+  }catch(e){}
+}
+function fadeIn(){
+  if(!audioCtx) return;
+  droneG.gain.linearRampToValueAtTime(0.035,audioCtx.currentTime+4);
+  droneG2.gain.linearRampToValueAtTime(0.018,audioCtx.currentTime+4);
+}
+function playGhost(){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  o.type='sine'; o.frequency.value=900+Math.random()*500;
+  g.gain.value=0; o.connect(g); g.connect(audioCtx.destination);
+  o.start(); g.gain.linearRampToValueAtTime(0.008,audioCtx.currentTime+0.6);
+  g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+2.5);
+  o.stop(audioCtx.currentTime+2.5);
+}
+function playClick(){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+  o.type='sine'; o.frequency.value=200; g.gain.value=0.08;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.25);
+  o.stop(audioCtx.currentTime+0.25);
+}
+function playError(){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+  o.type='sawtooth'; o.frequency.value=90; g.gain.value=0.06;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.6);
+  o.stop(audioCtx.currentTime+0.6);
+}
+function playVictory(){
+  if(!audioCtx) return;
+  [220,277.18,329.63,440].forEach((f,i)=>{
+    const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value=f; g.gain.value=0;
+    o.connect(g); g.connect(audioCtx.destination);
+    const t=audioCtx.currentTime+i*0.18;
+    o.start(t); g.gain.linearRampToValueAtTime(0.07,t+0.06);
+    g.gain.linearRampToValueAtTime(0,t+1.2); o.stop(t+1.2);
+  });
+}
+
+// ── INTERACTION ───────────────────────────
+const ray=new THREE.Raycaster();
+
+function checkRay(){
+  ray.setFromCamera(new THREE.Vector2(0,0),camera);
+  const hits=ray.intersectObjects(interactables);
+  const cross=$('crosshair'), hint=$('hint');
+  if(hits.length>0&&hits[0].distance<5){
+    currentTarget=hits[0].object;
+    cross.classList.add('hot'); hint.classList.add('show');
+  } else {
+    currentTarget=null;
+    cross.classList.remove('hot'); hint.classList.remove('show');
+  }
+}
+
+function interact(){
+  if(!currentTarget||puzzleOpen) return;
+  const d=currentTarget.userData;
+  playClick();
+  if(d.type==='note'){
+    showMsg(d.txt.replace(/\n/g,'<br>'),7000);
+    addNote('Nota trovata sul tavolo. La sequenza: Φ → Ψ → Δ → Σ → Λ');
+  } else if(d.type==='symbol'){
+    openPuzzle();
+  } else if(d.type==='door'){
+    if(puzzleSolved) triggerOpenDoor();
+    else showMsg('La porta non cede. Sul muro i sei simboli attendono. Il pendolo conosce l\'ordine.',3000);
+  }
+}
+
+// ── PUZZLE ────────────────────────────────
+function openPuzzle(){
+  puzzleOpen=true;
+  $('puzzle').style.display='block';
+  if(isLocked) document.exitPointerLock();
+  updatePuzzleLine();
+}
+function closePuzzle(){
+  puzzleOpen=false;
+  $('puzzle').style.display='none';
+}
+function updatePuzzleLine(){
+  if(playerSeq.length===0)
+    $('puzzle-line').textContent='Osserva il pendolo. Quale simbolo illumina per primo?';
+  else
+    $('puzzle-line').textContent='Sequenza: '+playerSeq.map(i=>SYM_NAMES[i]).join(' → ')+' → ?';
+}
+
+window.pressSymbol=function(idx){
+  if(puzzleSolved) return;
+  const expected=SOLUTION[playerSeq.length];
+  const btns=document.querySelectorAll('.sym');
+  if(idx===expected){
+    playerSeq.push(idx);
+    btns[idx].classList.add('lit');
+    symbolLights[idx].intensity=1.8;
+    playClick();
+    if(playerSeq.length===SOLUTION.length){
+      puzzleSolved=true;
+      playVictory();
+      $('puzzle-line').textContent='— SEQUENZA CORRETTA —';
+      addNote('Ho risolto il muro dei simboli. La porta dovrebbe aprirsi.');
+      setTimeout(()=>{closePuzzle();showMsg('I simboli si accendono in sequenza. Un meccanismo antico risveglia le pareti. La porta cede.',4500);},1400);
+    } else {
+      updatePuzzleLine();
+    }
+  } else {
+    playError();
+    btns[idx].classList.add('err');
+    setTimeout(()=>btns[idx].classList.remove('err'),300);
+    // reset
+    playerSeq=[];
+    btns.forEach(b=>b.classList.remove('lit'));
+    symbolLights.forEach(l=>l.intensity=0);
+    sanityFlash();
+    $('puzzle-line').textContent='Sbagliato. Il pendolo ricomincia dall\'inizio.';
+  }
+}
+
+window.closePuzzle=closePuzzle;
+
+// ── DOOR OPEN ─────────────────────────────
+function triggerOpenDoor(){
+  if(doorOpen) return;
+  doorOpen=true;
+  const t0=performance.now();
+  function animDoor(){
+    const t=Math.min((performance.now()-t0)/1800,1);
+    const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    doorMesh.rotation.y=-ease*(Math.PI/2);
+    doorMesh.position.x=ease*(-1.1);
+    if(t<1) requestAnimationFrame(animDoor);
+    else setTimeout(showWin,2000);
+  }
+  requestAnimationFrame(animDoor);
+}
+
+// ── NOTES ─────────────────────────────────
+function addNote(txt){
+  if(notes.includes(txt)) return;
+  notes.push(txt);
+  renderNotes();
+}
+function renderNotes(){
+  $('notes-inner').innerHTML=notes.map(n=>`<div class="note-entry">${n}</div>`).join('');
+}
+function toggleNotes(){
+  notesOpen=!notesOpen;
+  $('notes').style.display=notesOpen?'block':'none';
+  if(notesOpen&&isLocked) document.exitPointerLock();
+  renderNotes();
+}
+
+// ── TIMER ─────────────────────────────────
+function startTimer(){
+  timerID=setInterval(()=>{
+    timeLeft--;
+    if(timeLeft<=0){
+      clearInterval(timerID);
+      timeLeft=3600;
+      showMsg('Il tempo è scaduto. Il castello ti riporta all\'inizio. Qualcosa è cambiato.',5000);
+    }
+    const m=Math.floor(timeLeft/60);
+    const s=timeLeft%60;
+    $('timer').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if(timeLeft<600) $('timer').style.color='#c83030';
+    else if(timeLeft<1800) $('timer').style.color='#c87030';
+    else $('timer').style.color='#c8a96e';
+  },1000);
+}
+
+// ── MESSAGE ───────────────────────────────
+function showMsg(txt,dur=4000){
+  const b=$('msgbox');
+  b.innerHTML=txt; b.classList.add('show');
+  clearTimeout(msgTO);
+  msgTO=setTimeout(()=>b.classList.remove('show'),dur);
+}
+
+// ── SANITY ────────────────────────────────
+function sanityFlash(){
+  const s=$('sanity');
+  s.style.background='rgba(15,0,20,0.35)';
+  setTimeout(()=>s.style.background='rgba(0,0,0,0)',900);
+}
+
+// ── WIN ───────────────────────────────────
+function showWin(){
+  clearInterval(timerID);
+  if(isLocked) document.exitPointerLock();
+  const w=$('win');
+  w.style.display='flex';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    w.classList.add('show');
+    setTimeout(()=>$('nextfloor').style.opacity='1',3500);
+  }));
+}
+
+// ── START ─────────────────────────────────
+window.startGame=function(){
+  gameStarted=true;
+  $('overlay').style.display='none';
+  $('hud').style.display='block';
+  if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume().then(fadeIn);
+  else fadeIn();
+  startTimer();
+  addNote('Mi sono svegliato in questa sala. Nessun ricordo di come ci sono arrivato.');
+  addNote('Il registratore ha registrato tre ore di silenzio. Poi la mia voce, che non riconosco.');
+  addNote('Un pendolo oscilla sul muro dei simboli. Devo capire la sequenza.');
+  setTimeout(()=>showMsg('Osserva la stanza. Ogni dettaglio esiste per una ragione.',5000),1200);
+  $('c').requestPointerLock();
+}
+
+// ── MAIN LOOP ─────────────────────────────
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clock.getDelta(),0.05);
+  const t=clock.getElapsedTime();
+
+  // Camera rotation from yaw/pitch
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  // Movement
+  if(isLocked&&!puzzleOpen&&!notesOpen){
+    const spd=3.8;
+    const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+    const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+    if(moveF) camera.position.addScaledVector(fwd,spd*dt);
+    if(moveB) camera.position.addScaledVector(fwd,-spd*dt);
+    if(moveR) camera.position.addScaledVector(right,spd*dt);
+    if(moveL) camera.position.addScaledVector(right,-spd*dt);
+    camera.position.x=Math.max(-6.2,Math.min(6.2,camera.position.x));
+    camera.position.z=Math.max(-9.2,Math.min(9.5,camera.position.z));
+    camera.position.y=1.72;
+    checkRay();
+  }
+
+  // Candle flicker
+  candles.forEach(c=>{
+    const f=Math.sin(t*c.sp+c.ph)*c.amp
+           +Math.sin(t*c.sp*2.1+c.ph*1.8)*c.amp*0.4
+           +Math.sin(t*c.sp*5.7+c.ph*0.9)*c.amp*0.15;
+    c.L.intensity=Math.max(0,c.base+f);
+    c.flame.rotation.y=t*0.5+c.ph;
+  });
+
+  // Pendulum physics (damped harmonic)
+  pendulumOmega+= -0.006*Math.sin(pendulumAngle);
+  pendulumOmega*=0.9994;
+  pendulumAngle+=pendulumOmega;
+  if(pendulumGroup) pendulumGroup.rotation.z=pendulumAngle;
+
+  // Symbol lighting from pendulum
+  if(!puzzleSolved){
+    const bobX=Math.sin(pendulumAngle)*5.5;
+    symbolMeshes.forEach((sm,i)=>{
+      const d=Math.abs(bobX-sm.position.x);
+      const target=d<1.0 ? (1.0-d)*2.2 : 0;
+      symbolLights[i].intensity+=(target-symbolLights[i].intensity)*0.15;
+    });
+  } else {
+    // All lit when solved
+    symbolLights.forEach((sl,i)=>{
+      sl.intensity+=(1.5-sl.intensity)*0.05;
+    });
+  }
+
+  // Breathing FOV
+  camera.fov=72+Math.sin(t*0.12)*0.6;
+  camera.updateProjectionMatrix();
+
+  renderer.render(scene,camera);
+}
+
+init();
+</script>
+</body>
+</html>
